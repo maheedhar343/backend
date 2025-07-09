@@ -1,0 +1,21 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "get data from user and store in DB",
+  "main": "Server.js",
+  "scripts": {
+    "test": "first server",
+    "start": "node server.js"
+  },
+  "keywords": [
+    "DB"
+  ],
+  "author": "Maheedhar",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.10.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "mongoose": "^8.16.2"
+  }
+}
