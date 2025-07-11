@@ -1,79 +1,51 @@
 const express = require('express');
-const fs = require('fs').promises; // Use promises for async file operations
+const fs = require('fs');
 const app = express();
-const port = 3000;
+const PORT = 3000;
+const DATA_FILE = 'data.json';
 
-// Middleware to parse JSON
 app.use(express.json());
+app.use(express.static('.')); // Serve index.html
 
-// POST Method - Creates/Adds new data to JSON file
-app.post('/data', async (req, res) => {
-    try {
-        // Input validation
-        const { name, age, city } = req.body;
-        if (!name || !age || !city) {
-            return res.status(400).json({ message: 'Missing required fields: name, age, city' });
-        }
-        if (typeof name !== 'string' || typeof city !== 'string' || typeof age !== 'number') {
-            return res.status(400).json({ message: 'Invalid data types: name and city must be strings, age must be a number' });
-        }
-        if (age < 0 || age > 150) {
-            return res.status(400).json({ message: 'Invalid age: must be between 0 and 150' });
-        }
+// Read data
+const readData = () => JSON.parse(fs.readFileSync(DATA_FILE, 'utf-8'));
 
-        const newData = {
-            id: Date.now(), // Auto-generate unique ID
-            name,
-            age,
-            city
-        };
+// Write data
+const writeData = (data) => fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
 
-        // Read existing data
-        let existingData = [];
-        try {
-            const fileContent = await fs.readFile('data.json', 'utf8');
-            existingData = JSON.parse(fileContent);
-            if (!Array.isArray(existingData)) {
-                throw new Error('Invalid data format in data.json');
-            }
-        } catch (error) {
-            if (error.code !== 'ENOENT') {
-                // Handle non-"file not found" errors
-                throw error;
-            }
-            // If file doesn't exist, start with empty array
-        }
-
-        // Check for duplicate ID
-        if (existingData.some(item => item.id === newData.id)) {
-            return res.status(409).json({ message: 'ID conflict: please try again' });
-        }
-
-        // Add new data to existing array
-        existingData.push(newData);
-
-        // Write back to file
-        await fs.writeFile('data.json', JSON.stringify(existingData, null, 2));
-
-        res.status(201).json({
-            message: 'Data CREATED successfully using POST',
-            data: newData,
-            totalRecords: existingData.length
-        });
-    } catch (error) {
-        console.error('Error in POST /data:', error);
-        res.status(500).json({ message: 'Internal server error' });
-    }
+// GET all
+app.get('/api/data', (req, res) => {
+  res.json(readData());
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-    console.error('Unexpected error:', err);
-    res.status(500).json({ message: 'Internal server error' });
+// POST new item
+app.post('/api/data', (req, res) => {
+  const data = readData();
+  const newItem = { id: Date.now(), ...req.body };
+  data.push(newItem);
+  writeData(data);
+  res.status(201).json(newItem);
 });
 
-app.listen(port, () => {
-    console.log(`Server running at http://localhost:${port}`);
-    console.log('• POST: Creates new records, generates ID automatically');
-    console.log('• PUT: Updates existing records, requires specific ID (not implemented yet)');
+// PUT update by ID
+app.put('/api/data/:id', (req, res) => {
+  const data = readData();
+  const id = parseInt(req.params.id);
+  const index = data.findIndex(item => item.id === id);
+  if (index === -1) return res.status(404).send('Not found');
+  data[index] = { ...data[index], ...req.body };
+  writeData(data);
+  res.json(data[index]);
 });
+
+// DELETE by ID
+app.delete('/api/data/:id', (req, res) => {
+  const data = readData();
+  const id = parseInt(req.params.id);
+  const newData = data.filter(item => item.id !== id);
+  if (newData.length === data.length) return res.status(404).send('Not found');
+  writeData(newData);
+  res.sendStatus(204);
+});
+
+app.listen(PORT, () => console.log(`Server running at http://localhost:${PORT}`));
